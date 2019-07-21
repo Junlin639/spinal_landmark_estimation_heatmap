@@ -205,15 +205,15 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
     for batch_idx, batch_data in enumerate(t):
         inputs = batch_data['image']
         targets = batch_data['heatmap']
-        print(inputs.shape)
-        print(targets.shape)
+        #print(inputs.shape)
+        #print(targets.shape)
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda(async=True)
         inputs, targets = torch.autograd.Variable(inputs), torch.autograd.Variable(targets)
 
         # compute output
         outputs = model(inputs)
-        print(outputs.shape)
+        #print(outputs.shape)
         loss1 = criterion['L1'](outputs, targets)
         loss2 = criterion['MSE'](outputs, targets)
         loss = loss1
@@ -241,7 +241,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
     t = tqdm(iter(testloader))
     for batch_idx, batch_data in enumerate(t):
         inputs = batch_data['image']
-        targets = batch_data['landmarks']
+        targets = batch_data['heatmap']
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda(async=True)
         inputs, targets = torch.autograd.Variable(inputs), torch.autograd.Variable(targets)

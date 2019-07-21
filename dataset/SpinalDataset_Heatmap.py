@@ -242,7 +242,7 @@ class ToTensor(object):
         landmarks[:, 1] = land_data[:, 1]
         #land_data =landmarks.reshape(-1)
         land_data = landmarks
-        print(land_data.shape)
+        #print(land_data.shape)
         return {'image': torch.from_numpy(image).float().div(255),
                 'landmarks': torch.from_numpy(land_data.copy()).float(),
                 'shapes': sample['shapes']}
