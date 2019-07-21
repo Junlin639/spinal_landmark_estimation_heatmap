@@ -25,24 +25,24 @@ parser = argparse.ArgumentParser(description='Spinal landmark Training')
 # Datasets
 parser.add_argument('-d', '--dataset', default='Spine', type=str)
 parser.add_argument('-p', '--datapath', default='./dataset/boostnet_labeldata/', type=str)
-parser.add_argument('-j', '--workers', default=1, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=12, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
 parser.add_argument('--epochs', default=120, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--train-batch', default=1, type=int, metavar='N',
+parser.add_argument('--train-batch', default=12, type=int, metavar='N',
                     help='train batchsize')
-parser.add_argument('--test-batch', default=1, type=int, metavar='N',
+parser.add_argument('--test-batch', default=12, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.5, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+', default=[40,80],
                         help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=0.2, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=0.5, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -216,7 +216,7 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
         #print(outputs.shape)
         loss1 = criterion['L1'](outputs, targets)
         loss2 = criterion['MSE'](outputs, targets)
-        loss = loss1
+        loss = loss2
 
         # measure accuracy and record loss
         #nms= normalizedME(outputs.data,targets.data,64,64)

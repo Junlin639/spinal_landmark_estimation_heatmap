@@ -1,4 +1,4 @@
-import matlab.engine
+#import matlab.engine
 
 import argparse
 import os
@@ -14,8 +14,9 @@ import torch.optim as optim
 import torch.utils.data as data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-from models import *
-from dataset.SpinalDataset import *
+import matplotlib.pyplot as plt
+from models.unet import *
+from dataset.SpinalDataset_Heatmap import *
 
 from utils import Bar, Logger, AverageMeter, normalizedME, mkdir_p, savefig
 from utils.cobb import *
@@ -24,7 +25,7 @@ import pandas as pd
 parser = argparse.ArgumentParser(description='Spinal landmark Training')
 # Datasets
 parser.add_argument('-d', '--dataset', default='Spine', type=str)
-parser.add_argument('-p', '--datapath', default='/home/felix/data/AASCE/boostnet_labeldata/', type=str)
+parser.add_argument('-p', '--datapath', default='dataset/boostnet_labeldata/', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
@@ -32,9 +33,9 @@ parser.add_argument('--epochs', default=300, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--train-batch', default=64, type=int, metavar='N',
+parser.add_argument('--train-batch', default=12, type=int, metavar='N',
                     help='train batchsize')
-parser.add_argument('--test-batch', default=64, type=int, metavar='N',
+parser.add_argument('--test-batch', default=12, type=int, metavar='N',
                     help='test batchsize')
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     metavar='LR', help='initial learning rate')
@@ -50,7 +51,7 @@ parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
 # Checkpoints
 parser.add_argument('-c', '--checkpoint', default='checkpoint/00/', type=str, metavar='PATH',
                     help='path to save checkpoint (default: checkpoint)')
-parser.add_argument('--resume', default='/home/felix/work/spine/spinal_landmark_estimation/checkpoint/00/model_best.pth.tar', type=str, metavar='PATH',
+parser.add_argument('--resume', default='./checkpoint/00/model_best.pth.tar', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 # Architecture
 parser.add_argument('--depth', type=int, default=104, help='Model depth.')
@@ -91,36 +92,39 @@ def main():
     print('==> Preparing dataset %s' % args.dataset)
     transform_test = transforms.Compose([
         #SmartRandomCrop(),
-        Rescale((256, 128)),
+        Rescale((64, 32)),
         ToTensor(),
         #Normalize([ 0.485, 0.485, 0.485,], [ 0.229, 0.229, 0.229,]),
     ])
 
-    testset = SpinalDataset(
+    testset = SpinalDataset_Heatmap(
         csv_file = args.datapath + '/labels/test/filenames.csv', transform=transform_test,
         img_dir = args.datapath + '/data/test/', landmark_dir = args.datapath + '/labels/test/')
     testloader = data.DataLoader(testset, batch_size=args.train_batch, shuffle=True, num_workers=args.workers)
-    model = resnet(136)
+    model = UNet(3,69)
     cudnn.benchmark = True
     print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters())/1000000.0))
 
     criterion = nn.MSELoss().cuda()
 
-    ignored_params = list(map(id, model.fc.parameters()))
-    base_params = filter(lambda p: id(p) not in ignored_params,
-                         model.parameters())
-    params = [
-        {'params': base_params, 'lr': args.lr},
-        {'params': model.fc.parameters(), 'lr': args.lr * 10}
-    ]
-    model = torch.nn.DataParallel(model).cuda()
-    optimizer = optim.Adam(params=params, lr=args.lr, weight_decay=args.weight_decay)
+    #ignored_params = list(map(id, model.fc.parameters()))
+    #base_params = filter(lambda p: id(p) not in ignored_params,
+    #                     model.parameters())
+    #params = [
+    #    {'params': base_params, 'lr': args.lr},
+    #    {'params': model.fc.parameters(), 'lr': args.lr * 10}
+    #]
+    #model = torch.nn.DataParallel(model).cuda()
+    model = model.cuda()
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    #optimizer = optim.Adam(params=params, lr=args.lr, weight_decay=args.weight_decay)
 
     # Resume
-    title = 'facelandmark_squeezenet_64'
+    title = 'facelandmark_resnet_136'
 
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
+    print(args.resume)
     assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
     args.checkpoint = os.path.dirname(args.resume)
     checkpoint = torch.load(args.resume)
@@ -154,7 +158,7 @@ def test(testloader, model, criterion, use_cuda):
         data_time.update(time.time() - end)
 
         inputs = batch_data['image']
-        targets = batch_data['landmarks']
+        targets = batch_data['heatmap']
         shape = batch_data['shapes']
         shapes.append(shape.cpu().data.numpy())
 
@@ -164,10 +168,18 @@ def test(testloader, model, criterion, use_cuda):
 
         # compute output
         outputs = model(inputs)
+        plt.subplot(1,2,1)
+        print(outputs.shape)
+        plt.imshow(outputs.cpu().data.numpy()[0,20,:,:])
+        plt.subplot(1,2,2)
+        print(targets.shape)
+        plt.imshow(targets.cpu().data.numpy()[0, 20, :, :])
+        plt.savefig('test.png')
+
         landmarks.append(outputs.cpu().data.numpy())
 
         loss = criterion(outputs, targets)
-
+        print(loss)
         # measure accuracy and record loss
         losses.update(loss.data, inputs.size(0))
 
